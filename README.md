@@ -105,7 +105,7 @@ import { singleton } from 'easy-websocket-client';
 
 const SingletonWebSocketClient = singleton(WebSocketClient);
 
-const clientInstance = new SingletonWebSocketClient('wss://example.com/socket');
+const clientInstance = new SingletonWebSocketClient();
 ```
 
 ## 📝 贡献指南

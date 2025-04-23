@@ -5,11 +5,11 @@
     "websocket",
     "socket"
   ],
-  "version": "0.0.1",
+  "version": "0.0.1-beta",
   "scripts": {
     "build:umd": "vite build -c ./vite.config.umd.ts",
     "build:base": "rimraf types && vite build",
-    "build": "rimraf types && pnpm build:base && pnpm build:umd",
+    "build": "rimraf types && pnpm build:base",
     "ci:publish": "pnpm changeset publish -r",
     "test": "vitest",
     "lint-staged": "lint-staged"
@@ -19,6 +19,7 @@
     "dist",
     "types",
     "!dist/**/*.map",
+    "!dist/**/*.map",
     "README.md",
     "LICENSE",
     "README.en.md"
@@ -27,23 +28,6 @@
   "module": "./dist/es/index.js",
   "types": "./types/index.d.ts",
   "unpkg": "./dist/umd/index.js",
-  "exports": {
-    ".": {
-      "require": "./dist/cjs/index.js",
-      "import": "./dist/es/index.js",
-      "types": "./types/index.d.ts"
-    },
-    "./plugins": {
-      "require": "./dist/cjs/plugins/index.js",
-      "import": "./dist/es/plugins/index.js",
-      "types": "./types/plugins/index.d.ts"
-    },
-    "./plugins/sse": {
-      "require": "./dist/cjs/plugins/sse.js",
-      "import": "./dist/es/plugins/sse.js",
-      "types": "./types/plugins/sse.d.ts"
-    }
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/JsonLee12138/hook-fetch"

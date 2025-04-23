@@ -11,14 +11,10 @@ export default defineConfig(({mode})=> {
     })],
     build: {
       lib: {
-        entry: {
-          index: './src/index.ts',
-          'plugins/index': './src/plugins/index.ts',
-          'plugins/sse': './src/plugins/sse.ts',
-        },
+        entry: './src/index.ts',
         name: 'hook-fetch',
-        fileName: (format, entryName) => {
-          return `${format}/${entryName}.js`
+        fileName: (format) => {
+          return `${format}/index.js`
         },
         formats: ['es', 'cjs']
       },
