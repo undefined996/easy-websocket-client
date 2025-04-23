@@ -5,7 +5,7 @@
     "websocket",
     "socket"
   ],
-  "version": "0.0.1-beta",
+  "version": "0.0.2",
   "scripts": {
     "build:umd": "vite build -c ./vite.config.umd.ts",
     "build:base": "rimraf types && vite build",
@@ -19,7 +19,7 @@
     "dist",
     "types",
     "!dist/**/*.map",
-    "!dist/**/*.map",
+    "!types/**/*.map",
     "README.md",
     "LICENSE",
     "README.en.md"
@@ -30,10 +30,10 @@
   "unpkg": "./dist/umd/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JsonLee12138/hook-fetch"
+    "url": "https://github.com/JsonLee12138/easy-websocket-client"
   },
   "bugs": {
-    "url": "https://github.com/JsonLee12138/hook-fetch/issues",
+    "url": "https://github.com/JsonLee12138/easy-websocket-client/issues",
     "email": "lijunsong2@gmail.com"
   },
   "license": "MIT",

@@ -16,7 +16,7 @@ export default defineConfig(({mode})=> {
         fileName: (format) => {
           return `${format}/index.js`
         },
-        formats: ['es', 'cjs']
+        formats: ['es', 'cjs', 'umd']
       },
       minify: 'oxc',
       outDir: './dist',
