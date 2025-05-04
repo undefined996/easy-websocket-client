@@ -2,7 +2,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import dts from 'vite-plugin-dts';
 
-export default defineConfig(({mode})=> {
+export default defineConfig(({ mode }) => {
   loadEnv(mode, process.cwd());
   return {
     plugins: [dts({
@@ -12,7 +12,7 @@ export default defineConfig(({mode})=> {
     build: {
       lib: {
         entry: './src/index.ts',
-        name: 'hook-fetch',
+        name: 'easy-websocket-client',
         fileName: (format) => {
           return `${format}/index.js`
         },
@@ -24,20 +24,7 @@ export default defineConfig(({mode})=> {
       emptyOutDir: true,
     },
     test: {
-      testTimeout: 20_000,
-      // environment: 'happy-dom',
-      // // 启用浏览器环境测试
-      // browser: {
-      //   enabled: true,
-      //   provider: 'playwright',
-      //   instances: [
-      //     {
-      //       browser: 'chromium'
-      //     },
-      //   ],
-      // },
-      // // 设置全局测试环境
-      // globals: true,
+      testTimeout: 20_000
     }
   }
 })
