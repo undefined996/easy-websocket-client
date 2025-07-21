@@ -5,7 +5,7 @@
     "websocket",
     "socket"
   ],
-  "version": "0.0.3",
+  "version": "1.0.0",
   "scripts": {
     "build:umd": "vite build -c ./vite.config.umd.ts",
     "build:base": "rimraf types && vite build",
@@ -50,7 +50,8 @@
     "typescript": "^5.7.3",
     "vite": "npm:rolldown-vite@latest",
     "vite-plugin-dts": "^4.5.3",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "ws": "^8.18.3"
   },
   "overrides": {
     "vite": "npm:rolldown-vite@latest"
@@ -59,5 +60,8 @@
     "commitizen": {
       "path": "node_modules/cz-git"
     }
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1"
   }
 }

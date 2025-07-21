@@ -1,4 +1,4 @@
-export interface WebSocketClientOptions<T> {
+export interface WebSocketClientOptions {
   reconnectInterval?: number;
   heartbeatInterval?: number;
   heartbeatMessage?: any;
@@ -8,8 +8,13 @@ export interface WebSocketClientOptions<T> {
   showLog?: boolean;
   connectResend?: boolean;
   jsonAble?: boolean;
-  onOpen?: (e: WebSocketEventMap["open"]) => void;
-  onClose?: (e: WebSocketEventMap["close"]) => void;
-  onMessage?: (_d: T) => void;
-  onError?: (e: WebSocketEventMap["error"]) => void;
 }
+
+export enum WebSocketClientEvent {
+  OPEN = "open",
+  MESSAGE = "message",
+  CLOSE = "close",
+  ERROR = "error",
+}
+
+export type WebSocketClientEventType = WebSocketClientEvent | `${WebSocketClientEvent}`;

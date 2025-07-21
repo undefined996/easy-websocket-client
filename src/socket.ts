@@ -1,123 +1,79 @@
+import EventEmitter from "eventemitter3";
 import { WebSocketReadyState } from "./enum";
-import { WebSocketClientOptions } from "./types";
+import { WebSocketClientEvent, WebSocketClientOptions, type WebSocketClientEventType } from "./types";
 
-export class WebSocketClient<T = any> {
+/**
+ * WebSocket client with automatic reconnection, heartbeat, and event handling.
+ * 具有自动重连、心跳和事件处理功能的 WebSocket 客户端。
+ *
+ * @template T - Type of messages sent/received. 发送/接收消息的类型。
+ */
+export class WebSocketClient {
   static ReadyState: WebSocketReadyState;
   #showLog?: boolean;
   #reconnectTimes: number = 0;
-  #reconnectInterval: number = 1000;
-  #heartbeatInterval: number = 10000;
+  #reconnectInterval: number;
+  #heartbeatInterval: number;
   #heartbeatMessage: string = "ping";
   #heartBeatTimer: ReturnType<typeof setTimeout> | null = null;
   #maxReconnectAttempts: number = 0;
   #url: string = "";
   #protocols: string | string[] = [];
-  #sendQueue: T[] = [];
+  #sendQueue: any[] = [];
   #connectResend: boolean = false;
   #jsonAble: boolean;
-  #_onOpen: WebSocketClientOptions<T>["onOpen"] = () => {
-    if (this.#showLog) {
-      console.log("websocket had opened");
-    }
-  };
-  #_onClose: WebSocketClientOptions<T>["onClose"] = (e: unknown) => {
-    if (this.#showLog) {
-      console.error("websocket had closed:", e);
-    }
-  };
-  #_onError: WebSocketClientOptions<T>["onError"] = (e: unknown) => {
-    if (this.#showLog) {
-      console.error("websocket error:", e);
-    }
-  };
-  #_onMessage: WebSocketClientOptions<T>["onMessage"] = (e: any) => {
-    if (this.#showLog) {
-      console.log("received a message:", e);
-    }
-  };
+  #eventEmitter: EventEmitter;
   #instance: WebSocket | null = null;
+  #WebSocketImpl: typeof WebSocket;
 
   /**
    * Constructs a WebSocket instance with specified options.
    * 使用指定的选项构造一个 WebSocket 实例。
    *
-   * @param {string} url - The WebSocket URL to connect to.
-   * @param {string} url - 要连接的 WebSocket URL。
-   *
-   * @param {Object} [options] - Configuration options for the WebSocket.
-   * @param {Object} [options] - WebSocket 的配置选项。
-   *
-   * @param {boolean} [options.showLog] - Whether to show logs.
-   * @param {boolean} [options.showLog] - 是否显示日志。
-   *
-   * @param {number} [options.reconnectInterval] - Interval in milliseconds between reconnection attempts.
-   * @param {number} [options.reconnectInterval] - 重连尝试之间的间隔时间（毫秒）。
-   *
-   * @param {number} [options.heartbeatInterval=10000] - Interval in milliseconds between heartbeat messages.
-   * @param {number} [options.heartbeatInterval=10000] - 心跳消息之间的间隔时间（毫秒）。
-   *
-   * @param {string} [options.heartbeatMessage="ping"] - Message sent as a heartbeat to keep the connection alive.
-   * @param {string} [options.heartbeatMessage="ping"] - 作为心跳发送的消息以保持连接。
-   *
-   * @param {number} [options.maxReconnectAttempts=0] - Maximum number of reconnection attempts. 0 means unlimited.
-   * @param {number} [options.maxReconnectAttempts=0] - 最大重连尝试次数。0 表示无限次尝试。
-   *
-   * @param {number} [options.jsonAble=false] - Message should it be deserialized from json.
-   * @param {number} [options.jsonAble=false] - message 是否做 json 反序列化处理。
-   *
-   * @param {function} [options.onClose] - Callback function to execute when the WebSocket connection is closed.
-   * @param {function} [options.onClose] - WebSocket 连接关闭时执行的回调函数。
-   *
-   * @param {function} [options.onError] - Callback function to execute when an error occurs.
-   * @param {function} [options.onError] - 发生错误时执行的回调函数。
-   *
-   * @param {function} [options.onMessage] - Callback function to execute when a message is received.
-   * @param {function} [options.onMessage] - 接收到消息时执行的回调函数。
-   *
-   * @param {function} [options.onOpen] - Callback function to execute when the WebSocket connection is opened.
-   * @param {function} [options.onOpen] - WebSocket 连接打开时执行的回调函数。
-   *
-   * @param {Array} [options.protocols=[]] - An array of protocols to use in the WebSocket connection.
-   * @param {Array} [options.protocols=[]] - 用于 WebSocket 连接的协议数组。
-   *
-   * @param {boolean} [connectResend] - Whether to resend unsent content after connection.
-   * @param {boolean} [connectResend] - 连接后是否重新发送未发送内容。
+   * @param url - The WebSocket URL to connect to. 要连接的 WebSocket URL。
+   * @param options - Configuration options for the WebSocket. WebSocket 的配置选项。
+   * @param options.showLog - Whether to show logs. 是否显示日志。
+   * @param options.reconnectInterval - Interval in milliseconds between reconnection attempts. Default: 1000. 重连间隔时间（毫秒），默认 1000。
+   * @param options.heartbeatInterval - Interval in milliseconds between heartbeat messages. Default: 10000. 心跳间隔时间（毫秒），默认 10000。
+   * @param options.heartbeatMessage - Message sent as heartbeat. Default: "ping". 心跳消息，默认 "ping"。
+   * @param options.maxReconnectAttempts - Maximum reconnection attempts. 0 means unlimited. Default: 0. 最大重连次数，0 表示无限次，默认 0。
+   * @param options.protocols - Array of protocols for WebSocket connection. Default: []. WebSocket 协议数组，默认 []。
+   * @param options.connectResend - Whether to resend unsent messages after reconnection. Default: false. 重连后是否重发未发送消息，默认 false。
+   * @param options.jsonAble - Whether to parse received messages as JSON. Default: false. 是否将接收消息解析为 JSON，默认 false。
+   * @param WebSocketImpl - WebSocket implementation to use. Default: WebSocket. 使用的 WebSocket 实现，默认 WebSocket。
    */
   constructor(
     url: string,
     {
       showLog,
-      reconnectInterval,
-      heartbeatInterval = 10000,
+      reconnectInterval = 1_000,
+      heartbeatInterval = 10_000,
       heartbeatMessage = "ping",
       maxReconnectAttempts = 0,
-      onClose,
-      onError,
-      onMessage,
-      onOpen,
       protocols = [],
       connectResend = false,
       jsonAble = false
-    }: WebSocketClientOptions<T> = {}
+    }: WebSocketClientOptions = {},
+    WebSocketImpl: typeof WebSocket = WebSocket
   ) {
     this.#showLog = showLog;
     this.#url = url;
-    reconnectInterval && (this.#reconnectInterval = reconnectInterval);
+    this.#reconnectInterval = reconnectInterval;
     this.#heartbeatInterval = heartbeatInterval;
     this.#heartbeatMessage = heartbeatMessage;
     this.#maxReconnectAttempts = maxReconnectAttempts;
     this.#protocols = protocols;
-    onClose && (this.#_onClose = onClose);
-    onOpen && (this.#_onOpen = onOpen);
-    onError && (this.#_onError = onError);
-    onMessage && (this.#_onMessage = onMessage);
     this.#connectResend = connectResend;
     this.#jsonAble = jsonAble;
+    this.#eventEmitter = new EventEmitter();
+    this.#WebSocketImpl = WebSocketImpl;
   }
 
   /**
    * Returns the current WebSocket instance.
    * 返回当前 WebSocket 实例。
+   *
+   * @returns The current WebSocket instance or null. 当前 WebSocket 实例或 null。
    */
   get instance() {
     return this.#instance;
@@ -132,7 +88,7 @@ export class WebSocketClient<T = any> {
       this.#instance = null;
       this.#reconnectInterval++;
     }
-    this.#instance = new WebSocket(this.#url, this.#protocols);
+    this.#instance = new this.#WebSocketImpl(this.#url, this.#protocols);
     this.#instance.onclose = e => {
       this.#onClose(e);
     };
@@ -140,7 +96,10 @@ export class WebSocketClient<T = any> {
       this.#onOpen(e);
     };
     this.#instance.onerror = e => {
-      this.#_onError?.(e);
+      if (this.#showLog) {
+        console.error("websocket error:", e);
+      }
+      this.#eventEmitter.emit(WebSocketClientEvent.ERROR, e);
     };
     this.#instance.onmessage = e => {
       this.#onMessage(e);
@@ -155,28 +114,32 @@ export class WebSocketClient<T = any> {
         this.send(item);
       }
     }
-    this.#_onOpen?.(e);
+    if (this.#showLog) {
+      console.log("websocket had opened");
+    }
+    this.#eventEmitter.emit(WebSocketClientEvent.OPEN, e);
   };
 
   #onMessage(e: WebSocketEventMap["message"]) {
-    if (!this.#jsonAble) {
-      this.#_onMessage?.(e.data);
-      return
+    let res = e.data;
+    if(this.#jsonAble){
+      try {
+        res = JSON.parse(e.data);
+      } catch {
+
+      }
     }
-    try {
-      const res = JSON.parse(e.data);
-      this.#_onMessage?.(res);
-    } catch (error) {
-      this.#_onMessage?.(e.data);
+    this.#eventEmitter.emit(WebSocketClientEvent.MESSAGE, res);
+    if(this.#showLog){
+      console.log("received a message:", res);
     }
   }
 
   /**
-   * Sends a message without converting it to a string.
-   * 发送消息 不需要转成字符串。
+   * Sends a message through WebSocket. Objects will be JSON stringified automatically.
+   * 通过 WebSocket 发送消息。对象会自动 JSON 序列化。
    *
-   * @param {T} e - The message to be sent.
-   * @param {T} e - 要发送的消息。
+   * @param e - The message to be sent. 要发送的消息。
    */
   send = <T = any>(e: T) => {
     if (this.state === WebSocketReadyState.OPEN) {
@@ -210,7 +173,7 @@ export class WebSocketClient<T = any> {
 
   /**
    * Stops the heartbeat mechanism.
-   * 关闭心跳检测。
+   * 停止心跳检测。
    */
   stopHeartBeat() {
     if (this.#heartBeatTimer) {
@@ -232,12 +195,58 @@ export class WebSocketClient<T = any> {
       }, this.#reconnectInterval);
       return;
     }
-    this.#_onClose?.(e);
+    if (this.#showLog) {
+      console.log("websocket had closed");
+    }
+    this.#eventEmitter.emit(WebSocketClientEvent.CLOSE, e);
+  }
+
+  /**
+   * Adds an event listener for the specified event.
+   * 为指定事件添加监听器。
+   *
+   * @param event - The event type to listen to. 要监听的事件类型。
+   * @param listener - The callback function to execute when the event is emitted. 事件触发时执行的回调函数。
+   */
+  on<T extends (...args: any[]) => void>(event: WebSocketClientEventType, listener: T) {
+    this.#eventEmitter.on(event, listener);
+  }
+
+  /**
+   * Removes an event listener for the specified event.
+   * 移除指定事件的监听器。
+   *
+   * @param event - The event type to remove listener from. 要移除监听器的事件类型。
+   * @param listener - The specific listener to remove. If not provided, all listeners for the event will be removed. 要移除的特定监听器。如果未提供，则移除该事件的所有监听器。
+   */
+  off<T extends (...args: any[]) => void>(event: WebSocketClientEventType, listener?: T) {
+    this.#eventEmitter.off(event, listener);
+  }
+
+  /**
+   * Adds a one-time event listener for the specified event.
+   * 为指定事件添加一次性监听器。
+   *
+   * @param event - The event type to listen to once. 要监听一次的事件类型。
+   * @param listener - The callback function to execute when the event is emitted. 事件触发时执行的回调函数。
+   */
+  once<T extends (...args: any[]) => void>(event: WebSocketClientEventType, listener: T) {
+    this.#eventEmitter.once(event, listener);
+  }
+
+  /**
+   * Removes all event listeners for all events.
+   * 移除所有事件的所有监听器。
+   */
+  offAll() {
+    this.#eventEmitter.removeAllListeners();
   }
 
   /**
    * Gets the current WebSocket connection state.
-   * 获取 WebSocket 连接状态。
+   * 获取当前 WebSocket 连接状态。
+   *
+   * @returns The current ready state of the WebSocket connection. 当前 WebSocket 连接的就绪状态。
    */
   get state() {
     return this.#instance?.readyState
