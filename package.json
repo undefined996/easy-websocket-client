@@ -5,12 +5,13 @@
     "websocket",
     "socket"
   ],
-  "version": "0.0.2",
+  "version": "0.0.3",
   "scripts": {
     "build:umd": "vite build -c ./vite.config.umd.ts",
     "build:base": "rimraf types && vite build",
     "build": "rimraf types && pnpm build:base",
     "ci:publish": "pnpm changeset publish -r",
+    "ci:beta": "pnpm changeset version --tag beta",
     "test": "vitest",
     "lint-staged": "lint-staged"
   },
