@@ -19,6 +19,16 @@ yarn add easy-websocket-client
 pnpm add easy-websocket-client
 ```
 
+## ⚠️ 破坏性更新 Breaking Changes
+
+**v1.0.0** 版本移除了构造函数中的事件回调选项，现在使用事件监听器模式：
+
+- **移除**：`onOpen`, `onClose`, `onMessage`, `onError` 构造选项
+- **新增**：使用 `client.on()`, `client.once()`, `client.off()` 方法监听事件
+- **新增**：`jsonAble` 选项自动解析 JSON 消息
+- **新增**：`WebSocketImpl`参数, 用于支持`node`, 在`node`环境中需要传入`ws`库中的`WebSocket`
+- **改进**：更好的 `TypeScript` 类型支持
+
 ## 基础使用
 
 ### 创建 WebSocket 连接
@@ -26,20 +36,32 @@ pnpm add easy-websocket-client
 ```typescript
 import WebSocketClient from 'easy-websocket-client';
 
+// 创建客户端实例
 const client = new WebSocketClient('wss://example.com/socket', {
   showLog: true,
   reconnectInterval: 2000,
   heartbeatInterval: 10000,
   heartbeatMessage: 'ping',
   maxReconnectAttempts: 5,
-  onOpen: () => console.log('Connection opened'),
-  onClose: (e) => console.log('Connection closed', e),
-  onMessage: (message) => console.log('Received message', message),
-  onError: (error) => console.error('Error occurred', error),
+  protocols: ['chat'],
+  connectResend: true,
+  jsonAble: true // 自动解析 JSON 消息
 });
+
+// 添加事件监听器
+client.on('open', () => console.log('Connection opened'));
+client.on('close', (e) => console.log('Connection closed', e));
+client.on('message', (message) => console.log('Received message', message));
+client.on('error', (error) => console.error('Error occurred', error));
 
 // 开始连接
 client.connect();
+
+// 发送消息
+client.send({ type: 'chat', content: 'Hello World' });
+
+// 关闭连接
+client.close();
 ```
 
 ## 单例模式的使用
@@ -50,14 +72,16 @@ client.connect();
 ### 使用装饰器实现单例
 
 ```typescript
-import { singleton } from 'easy-websocket-client';
+import WebSocketClient, { singleton } from 'easy-websocket-client';
 
 // 你需要的获取消息的类型
-interface Message{}
+interface Message {
+  type: string;
+  data: any;
+}
 
 @singleton
-class MyWebSocketClient extends WebSocketClient<Message> {
-  // 自定义功能
+class MyWebSocketClient extends WebSocketClient {
   constructor() {
     // url 处理
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -68,27 +92,39 @@ class MyWebSocketClient extends WebSocketClient<Message> {
       : import.meta.env.VITE_API_URL.includes("ws") || import.meta.env.VITE_API_URL.includes("http")
         ? import.meta.env.VITE_API_URL
         : `${protocol}://${host}${import.meta.env.VITE_API_URL.includes("/") ? "" : "/"}${import.meta.env.VITE_API_URL}`;
-    const deviceId = localStorage.getItem("deviceId");
-    super('your url result', {
-      heartbeatMessage: { type: SocketEmitterEvent.HEARTBEAT, textMsg: "ping" },
+
+    super(baseURL, {
+      heartbeatMessage: JSON.stringify({ type: 'HEARTBEAT', textMsg: "ping" }),
       heartbeatInterval: 10000,
       maxReconnectAttempts: 3,
       connectResend: true,
-      onMessage(_d) {
-        // 你的接收到的消息处理(建议使用发布订阅模式)
-      },
-      onOpen(e) {
-        // 你的连接成功处理(建议使用发布订阅模式)
-      },
-      onClose(e) {
-        // 你的连接关闭处理(建议使用发布订阅模式)
-      },
-      onError(e) {
-        // 你的连接错误处理(建议使用发布订阅模式)
-      }
+      jsonAble: true // 自动解析 JSON
     });
+
+    // 使用事件监听器而不是构造选项
+    this.on('message', (data: Message) => {
+      // 你的接收到的消息处理(建议使用发布订阅模式)
+      console.log('Received:', data);
+    });
+
+    this.on('open', (e) => {
+      // 你的连接成功处理(建议使用发布订阅模式)
+      console.log('Connected:', e);
+    });
+
+    this.on('close', (e) => {
+      // 你的连接关闭处理(建议使用发布订阅模式)
+      console.log('Disconnected:', e);
+    });
+
+    this.on('error', (e) => {
+      // 你的连接错误处理(建议使用发布订阅模式)
+      console.error('WebSocket error:', e);
+    });
+
     this.connect();
   }
+
   public close = () => {
     super.close();
     MyWebSocketClient.reset();
@@ -101,15 +137,59 @@ const clientInstance = new MyWebSocketClient();
 ### 使用高阶函数实现单例（不支持装饰器的情况下）
 
 ```typescript
-import { singleton } from 'easy-websocket-client';
+import WebSocketClient, { singleton } from 'easy-websocket-client';
 
 const SingletonWebSocketClient = singleton(WebSocketClient);
 
-const clientInstance = new SingletonWebSocketClient();
+const clientInstance = new SingletonWebSocketClient('wss://example.com/socket', {
+  jsonAble: true,
+  connectResend: true
+});
+
+// 添加事件监听
+clientInstance.on('message', (data) => {
+  console.log('Message received:', data);
+});
+
+clientInstance.connect();
 ```
 
+## API 参考
+
+### 构造选项
+
+```typescript
+interface WebSocketClientOptions {
+  showLog?: boolean;              // 是否显示日志
+  reconnectInterval?: number;     // 重连间隔(ms)，默认 1000
+  heartbeatInterval?: number;     // 心跳间隔(ms)，默认 10000
+  heartbeatMessage?: string;      // 心跳消息，默认 "ping"
+  maxReconnectAttempts?: number;  // 最大重连次数，默认 0(无限)
+  protocols?: string[];           // WebSocket 协议
+  connectResend?: boolean;        // 重连后重发消息，默认 false
+  jsonAble?: boolean;             // 自动解析 JSON，默认 false
+}
+```
+
+### 事件类型
+
+- `open`: 连接建立时触发
+- `close`: 连接关闭时触发
+- `message`: 接收到消息时触发
+- `error`: 发生错误时触发
+
+### 方法
+
+- `connect()`: 建立连接
+- `send(message)`: 发送消息
+- `close()`: 关闭连接
+- `on(event, listener)`: 添加事件监听器
+- `once(event, listener)`: 添加一次性事件监听器
+- `off(event, listener)`: 移除事件监听器
+- `offAll()`: 移除所有事件监听器
+
 ## 📝 贡献指南
-欢迎提交`issue`或`pull request`，共同完善`Hook-Fetch`。
+欢迎提交`issue`或`pull request`，共同完善`Easy-Websocket-Client`。
 
 ## 📄 许可证
 
@@ -117,4 +197,5 @@ MIT
 
 ## 联系我们
 
-- [Discord](https://discord.gg/Ah55KD5d)
+- [Discord](https://discord.gg/666U6JTCQY)
+- [QQ频道](https://pd.qq.com/s/fjwy3eo20?b=9) [![图片描述](./qq.jpg)](https://pd.qq.com/s/fjwy3eo20?b=9)
